@@ -1,0 +1,178 @@
+---
+title: "Project"
+author: "Airline Passenger System"
+date: "05/01/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Reading Data
+```{r}
+setwd('C:/Users/PAVITRA/Desktop/PG/PG Project')
+getwd()
+imp_data<-read.csv("train.csv")
+dim(imp_data)
+#View(imp_data)
+names(imp_data)
+```
+
+```{r}
+head(imp_data)
+```
+
+Removing NA values
+```{r}
+sum(is.na(imp_data))
+```
+
+
+Identifying and removing outliers
+```{r}
+boxplot(imp_data$Checkin.service)
+summary(imp_data$Checkin.service)
+lowfence<-3.000-1.5*IQR(imp_data$Checkin.service)
+lowfence
+imp_data$Checkin.service<-replace(imp_data$Checkin.service,imp_data$Checkin.service<1.5,median(imp_data$Checkin.service))
+summary(imp_data$Checkin.service)
+boxplot(imp_data$Checkin.service)
+```
+
+Adding dummy variable
+```{r}
+imp_data$satisfaction<-ifelse(imp_data$satisfaction == "neutral or dissatisfied",0,1)
+#View(imp_data)
+imp_data$satisfaction<-as.factor(imp_data$satisfaction)
+library(dplyr)
+imp_data%>%count(imp_data$satisfaction)
+```
+
+```{r}
+summary(imp_data)
+```
+
+Analyzing Numerical Variables
+```{r}
+cor(imp_data[,-c(2,3,5,6,21)])
+```
+
+Analyzing Categorical Variables
+```{r}
+library(Hmisc)
+library(funModeling)
+freq(imp_data)
+```
+
+
+Visualizations
+```{r}
+hist(imp_data$Gate.location)
+library(ggplot2)
+ggplot(data=imp_data,mapping=aes(x=Departure.Arrival.time.convenient,y=satisfaction))+geom_bar(stat="Identity",fill="blue")
+ggplot(data=imp_data)+geom_point(mapping=aes(x=Online.boarding,y=On.board.service,color=satisfaction))
+```
+
+Training and Testing data
+```{r}
+set.seed(1)
+train_data<-sample(1:nrow(imp_data),nrow(imp_data)*0.75)
+test_data<-imp_data[-train_data,]
+names(test_data)
+dim(test_data)
+test_data1<-test_data[,-c(21)]
+test_data1
+```
+
+Logistic Regression
+```{r}
+set.seed(1)
+model1 <- glm(satisfaction~-id+Inflight.wifi.service+Ease.of.Online.booking+Food.and.drink+Seat.comfort+      Inflight.entertainment+Cleanliness+Baggage.handling+Inflight.service,data = imp_data,subset = train_data,family="binomial")
+summary(model1)
+```
+
+```{r}
+predict_model1 <- predict(model1,test_data1)
+predict_factor<-ifelse(predict_model1>0.5,1,0)
+predict_factor
+```
+
+```{r}
+table(predict_factor,newdata=test_data$satisfaction)
+accuracy_glm<-(13161+5387)/(13161+5834+1594+5387)
+accuracy_glm
+```
+
+Tree
+```{r}
+library(tree)
+model2 <- tree(satisfaction~.-id+Inflight.wifi.service+Food.and.drink+Seat.comfort+      Inflight.entertainment+Cleanliness+Baggage.handling+Inflight.service,data = imp_data,subset = train_data)
+summary(model2)
+plot(model2)
+text(model2,pretty=0)
+```
+
+```{r}
+predict_model2 <- predict(model2,test_data1,type="class")
+predict_model2
+```
+
+```{r}
+table(predict_model2,newdata=test_data$satisfaction)
+accuracy_tree<-(13428+8682)/(13428+2539+1327+8682)
+accuracy_tree
+```
+cross validation
+```{r}
+set.seed(1)
+cv_model2<-cv.tree(model2,FUN=prune.misclass)
+plot(cv_model2$size,cv_model2$dev,type="b")
+```
+
+SVM
+```{r}
+library(e1071)
+model4<-svm(satisfaction~.-id+Inflight.wifi.service+Food.and.drink+Seat.comfort+      Inflight.entertainment+Cleanliness+Baggage.handling+Inflight.service,data=imp_data,type='C-classification',kernel="linear")
+summary(model4)
+```
+
+```{r}
+predict_model4<-predict(model4,test_data1)
+predict_model4
+```
+
+```{r}
+table(predict_model4,newdata=test_data$satisfaction)
+accuracy_svm<-(14292+10479)/(14292+742+463+10479)
+accuracy_svm
+```
+
+Naive Bayes
+```{r}
+library(e1071)
+library(caTools)
+library(caret)
+set.seed(1)
+model5<-naiveBayes(satisfaction~-id+Inflight.wifi.service+Ease.of.Online.booking+Food.and.drink+Seat.comfort+ Inflight.entertainment+Cleanliness+Baggage.handling+Inflight.service,data=imp_data,subset=train_data)
+model5
+```
+
+```{r}
+predict_model5<-predict(model5,test_data1)
+predict_model5
+```
+
+```{r}
+table(predict_model5,newdata=test_data$satisfaction)
+accuracy_nb = (10407+8845)/(10407+2376+4348+8845)
+accuracy_nb
+```
+
+
+
+
+
+
+
+
